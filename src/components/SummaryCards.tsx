@@ -1,6 +1,7 @@
 "use client";
 
 import { CalculationResult } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface SummaryCardsProps {
   result: CalculationResult;
@@ -9,24 +10,26 @@ interface SummaryCardsProps {
 
 function formatCurrency(value: number): string {
   const abs = Math.abs(value);
-  const formatted = abs >= 1000000
-    ? `$${(abs / 1000000).toFixed(2)}M`
-    : `$${abs.toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const formatted =
+    abs >= 1000000
+      ? `$${(abs / 1000000).toFixed(2)}M`
+      : `$${abs.toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   return value < 0 ? `-${formatted}` : formatted;
 }
 
 export default function SummaryCards({ result, projectionYears }: SummaryCardsProps) {
   const principalPaid = result.summary.totalEquityBuilt - result.downPaymentAmount;
-  const remainingMortgage = result.schedule.length > 0
-    ? result.schedule[result.schedule.length - 1].remainingBalance
-    : result.mortgageAmount;
+  const remainingMortgage =
+    result.schedule.length > 0
+      ? result.schedule[result.schedule.length - 1].remainingBalance
+      : result.mortgageAmount;
 
   const cards = [
     {
       label: "Total Out-of-Pocket",
       value: formatCurrency(result.summary.totalCostOverPeriod),
       sublabel: `All cash spent over ${projectionYears} yrs (down payment + closing + costs − income)`,
-      color: "text-red-600",
+      color: "text-destructive",
     },
     {
       label: `Equity Built (Year ${projectionYears})`,
@@ -56,23 +59,22 @@ export default function SummaryCards({ result, projectionYears }: SummaryCardsPr
       label: "Monthly Mortgage",
       value: formatCurrency(result.monthlyPayment),
       sublabel: `On ${formatCurrency(result.mortgageAmount)} mortgage`,
-      color: "text-gray-700",
+      color: "text-foreground",
     },
   ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="bg-white border border-gray-200 rounded-lg p-4"
-        >
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            {card.label}
-          </p>
-          <p className={`text-xl font-bold mt-1 ${card.color}`}>{card.value}</p>
-          <p className="text-xs text-gray-400 mt-1">{card.sublabel}</p>
-        </div>
+        <Card key={card.label} size="sm">
+          <CardContent>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {card.label}
+            </p>
+            <p className={`text-xl font-bold mt-1 ${card.color}`}>{card.value}</p>
+            <p className="text-xs text-muted-foreground mt-1">{card.sublabel}</p>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
