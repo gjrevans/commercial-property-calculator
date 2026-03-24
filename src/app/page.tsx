@@ -24,8 +24,8 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
-        <div className="lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
+        <div>
           <InputPanel inputs={inputs} onChange={setInputs} />
         </div>
         <div>
