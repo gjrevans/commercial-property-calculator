@@ -20,9 +20,9 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   closingCostsOverride: null,
 
   // Annual Operating Costs
-  propertyTax: 20000,
+  propertyTax: 15000,
   propertyTaxInflation: 3,
-  insurance: 4000,
+  insurance: 3000,
   insuranceInflation: 3,
   maintenance: 5000,
   maintenanceInflation: 2,
@@ -33,9 +33,9 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   rentAnnualIncrease: 2,
 
   // Current Costs Avoided
-  currentRent: 0,
-  currentInsurance: 0,
-  currentOther: 0,
+  currentRent: 2500,
+  currentInsurance: 3000,
+  currentOther: 1000,
   costsAvoidedInflation: 2,
 
   // Property Value
