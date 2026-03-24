@@ -33,7 +33,7 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   rentAnnualIncrease: 2,
 
   // Current Costs Avoided
-  currentRent: 2500,
+  currentRent: 36000,
   currentInsurance: 3000,
   currentOther: 1000,
   costsAvoidedInflation: 2,
