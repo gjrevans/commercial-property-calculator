@@ -1,6 +1,14 @@
 "use client";
 
 import { YearRow } from "@/lib/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ScheduleTableProps {
   schedule: YearRow[];
@@ -35,7 +43,6 @@ const columns: { key: keyof YearRow; label: string; group: string }[] = [
 ];
 
 export default function ScheduleTable({ schedule }: ScheduleTableProps) {
-  // Hide income/avoided columns if not used
   const hasIncome = schedule.some((row) => row.rentalIncomeGross > 0);
   const hasAvoided = schedule.some((row) => row.costsAvoided > 0);
   const visibleColumns = columns.filter((c) => {
@@ -45,26 +52,20 @@ export default function ScheduleTable({ schedule }: ScheduleTableProps) {
   });
 
   return (
-    <div className="overflow-x-auto border border-gray-200 rounded-lg">
-      <table className="min-w-full text-xs">
-        <thead>
-          <tr className="bg-gray-50">
+    <div className="rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
             {visibleColumns.map((col) => (
-              <th
-                key={col.key}
-                className="px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap border-b border-gray-200"
-              >
+              <TableHead key={col.key} className="text-xs">
                 {col.label}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {schedule.map((row) => (
-            <tr
-              key={row.year}
-              className="border-b border-gray-100 hover:bg-gray-50"
-            >
+            <TableRow key={row.year}>
               {visibleColumns.map((col) => {
                 const value = row[col.key] as number;
                 const isNegative = value < 0;
@@ -72,28 +73,28 @@ export default function ScheduleTable({ schedule }: ScheduleTableProps) {
                   col.key === "netCashFlow" || col.key === "cumulativeCashFlow";
 
                 return (
-                  <td
+                  <TableCell
                     key={col.key}
-                    className={`px-3 py-2 whitespace-nowrap font-mono ${
+                    className={`text-xs font-mono ${
                       col.key === "year"
-                        ? "font-semibold text-gray-700"
+                        ? "font-semibold"
                         : isNegative
-                        ? "text-red-600"
+                        ? "text-destructive"
                         : isCashFlow && value > 0
                         ? "text-green-600"
-                        : "text-gray-700"
+                        : ""
                     }`}
                   >
                     {col.key === "year"
                       ? value
                       : `${isNegative ? "-" : ""}$${fmt(Math.abs(value))}`}
-                  </td>
+                  </TableCell>
                 );
               })}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

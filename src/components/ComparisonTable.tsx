@@ -1,6 +1,15 @@
 "use client";
 
 import { ComparisonRow } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ComparisonTableProps {
   comparison: ComparisonRow[];
@@ -11,20 +20,6 @@ function fmt(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
-}
-
-function cell(value: number, invert = false) {
-  const isNeg = invert ? value > 0 : value < 0;
-  const isPos = invert ? value < 0 : value > 0;
-  return (
-    <td
-      className={`px-3 py-2 whitespace-nowrap font-mono ${
-        isNeg ? "text-red-600" : isPos ? "text-green-600" : "text-gray-700"
-      }`}
-    >
-      {value < 0 ? "-" : ""}${fmt(value)}
-    </td>
-  );
 }
 
 export default function ComparisonTable({ comparison }: ComparisonTableProps) {
@@ -38,86 +33,85 @@ export default function ComparisonTable({ comparison }: ComparisonTableProps) {
       <div
         className={`rounded-lg border p-4 ${
           owningWins
-            ? "border-green-200 bg-green-50"
-            : "border-amber-200 bg-amber-50"
+            ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+            : "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
         }`}
       >
-        <p className="text-sm font-semibold">
-          {owningWins ? (
-            <span className="text-green-700">
-              Owning wins by ${fmt(lastRow.advantage)} at year {lastRow.year}
-            </span>
-          ) : (
-            <span className="text-amber-700">
-              Renting + investing wins by ${fmt(Math.abs(lastRow.advantage))} at
-              year {lastRow.year}
-            </span>
-          )}
-        </p>
-        <p className="text-xs text-gray-600 mt-1">
+        <div className="flex items-center gap-2 mb-1">
+          <Badge variant={owningWins ? "default" : "secondary"}>
+            {owningWins ? "Owning Wins" : "Renting Wins"}
+          </Badge>
+          <span className="text-sm font-semibold">
+            by ${fmt(Math.abs(lastRow.advantage))} at year {lastRow.year}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
           Own net worth: ${fmt(lastRow.ownNetWorth)} (property − mortgage) vs
           Rent net position: ${fmt(lastRow.rentNetPosition)} (savings invested)
         </p>
       </div>
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full text-xs">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Year
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Rent Cost
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Own Cost
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Annual Savings
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Renter Investments
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Owner Net Worth
-              </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200">
-                Advantage
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Year</TableHead>
+              <TableHead className="text-xs">Rent Cost</TableHead>
+              <TableHead className="text-xs">Own Cost</TableHead>
+              <TableHead className="text-xs">Annual Savings</TableHead>
+              <TableHead className="text-xs">Renter Investments</TableHead>
+              <TableHead className="text-xs">Owner Net Worth</TableHead>
+              <TableHead className="text-xs">Advantage</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {comparison.map((row) => (
-              <tr
-                key={row.year}
-                className="border-b border-gray-100 hover:bg-gray-50"
-              >
-                <td className="px-3 py-2 font-semibold text-gray-700">
-                  {row.year}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700">
+              <TableRow key={row.year}>
+                <TableCell className="text-xs font-semibold">{row.year}</TableCell>
+                <TableCell className="text-xs font-mono">
                   ${fmt(row.rentCost)}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700">
+                </TableCell>
+                <TableCell className="text-xs font-mono">
                   ${fmt(row.ownCost)}
-                </td>
-                {cell(row.annualSavings)}
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700">
+                </TableCell>
+                <TableCell
+                  className={`text-xs font-mono ${
+                    row.annualSavings > 0
+                      ? "text-green-600"
+                      : row.annualSavings < 0
+                      ? "text-destructive"
+                      : ""
+                  }`}
+                >
+                  {row.annualSavings < 0 ? "-" : ""}${fmt(row.annualSavings)}
+                </TableCell>
+                <TableCell className="text-xs font-mono">
                   ${fmt(row.rentNetPosition)}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-gray-700">
+                </TableCell>
+                <TableCell className="text-xs font-mono">
                   ${fmt(row.ownNetWorth)}
-                </td>
-                {cell(row.advantage)}
-              </tr>
+                </TableCell>
+                <TableCell
+                  className={`text-xs font-mono ${
+                    row.advantage > 0
+                      ? "text-green-600"
+                      : row.advantage < 0
+                      ? "text-destructive"
+                      : ""
+                  }`}
+                >
+                  {row.advantage < 0 ? "-" : ""}${fmt(row.advantage)}
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      <p className="text-xs text-gray-400">
-        Annual Savings: positive (green) = owning is cheaper that year. Advantage: positive (green) = owning is ahead overall.
-        Renter investments assume the difference is invested at the return rate. Year 1 own cost includes down payment + closing costs.
+      <p className="text-xs text-muted-foreground">
+        Annual Savings: positive (green) = owning is cheaper that year. Advantage:
+        positive (green) = owning is ahead overall. Renter investments assume the
+        difference is invested at the return rate. Year 1 own cost includes down
+        payment + closing costs.
       </p>
     </div>
   );

@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronDown } from "lucide-react";
 
 interface InputGroupProps {
   title: string;
@@ -17,37 +24,38 @@ export default function InputGroup({
 }: InputGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
 
+  if (!collapsible) {
+    return (
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">{children}</CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => collapsible && setOpen(!open)}
-        className={`w-full flex items-center justify-between px-4 py-3 bg-gray-50 text-left ${
-          collapsible ? "cursor-pointer hover:bg-gray-100" : "cursor-default"
-        }`}
-      >
-        <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">
-          {title}
-        </h3>
-        {collapsible && (
-          <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${
-              open ? "rotate-180" : ""
-            }`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
+    <Card size="sm">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CardHeader>
+          <CollapsibleTrigger className="flex w-full items-center justify-between">
+            <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+              {title}
+            </CardTitle>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${
+                open ? "rotate-180" : ""
+              }`}
             />
-          </svg>
-        )}
-      </button>
-      {open && <div className="p-4 space-y-3">{children}</div>}
-    </div>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-3">{children}</CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 }

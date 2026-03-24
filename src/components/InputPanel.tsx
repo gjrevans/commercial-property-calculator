@@ -2,6 +2,7 @@
 
 import { CalculatorInputs } from "@/lib/types";
 import { calculateBCLandTransferTax } from "@/lib/calculations";
+import { Button } from "@/components/ui/button";
 import InputGroup from "./InputGroup";
 import NumberInput from "./NumberInput";
 
@@ -45,20 +46,21 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
           min={0}
         />
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium text-gray-700">Down Payment</label>
-            <button
-              type="button"
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-sm font-medium leading-none">Down Payment</label>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs"
               onClick={() =>
                 update({
                   downPaymentMode:
                     inputs.downPaymentMode === "percent" ? "dollar" : "percent",
                 })
               }
-              className="px-2 py-0.5 text-xs font-medium text-blue-600 border border-blue-300 rounded hover:bg-blue-50"
             >
               {inputs.downPaymentMode === "percent" ? "Switch to $" : "Switch to %"}
-            </button>
+            </Button>
           </div>
           {inputs.downPaymentMode === "percent" ? (
             <NumberInput
@@ -156,13 +158,14 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
                 }
               />
               {inputs.landTransferTaxOverride && (
-                <button
-                  type="button"
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 mt-1 text-xs"
                   onClick={() => update({ landTransferTaxOverride: false })}
-                  className="mt-1 text-xs text-blue-600 hover:underline"
                 >
                   Reset to auto-calculate (${autoLTT.toLocaleString()})
-                </button>
+                </Button>
               )}
             </div>
             <NumberInput
@@ -173,9 +176,11 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
               step={500}
               min={0}
             />
-            <div className="pt-2 border-t border-gray-100">
-              <button
-                type="button"
+            <div className="pt-2 border-t">
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-muted-foreground"
                 onClick={() =>
                   update({
                     closingCostsOverride:
@@ -188,10 +193,9 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
                       inputs.environmentalAssessment,
                   })
                 }
-                className="text-xs text-gray-500 hover:text-gray-700"
               >
                 Or enter a total override instead →
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -204,13 +208,14 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
               step={500}
               min={0}
             />
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
               onClick={() => update({ closingCostsOverride: null })}
-              className="text-xs text-blue-600 hover:underline"
             >
               ← Back to itemized costs
-            </button>
+            </Button>
           </>
         )}
       </InputGroup>

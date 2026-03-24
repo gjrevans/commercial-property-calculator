@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 interface NumberInputProps {
   label: string;
   value: number;
@@ -24,32 +27,30 @@ export default function NumberInput({
   hint,
 }: NumberInputProps) {
   return (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+    <div className="flex flex-col gap-1.5">
+      {label && <Label>{label}</Label>}
       <div className="flex items-center">
         {prefix && (
-          <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+          <span className="inline-flex items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 h-8 text-sm text-muted-foreground">
             {prefix}
           </span>
         )}
-        <input
+        <Input
           type="number"
           value={value ?? ""}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
           step={step}
           min={min}
           max={max}
-          className={`block w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none ${
-            prefix ? "" : "rounded-l-md"
-          } ${suffix ? "" : "rounded-r-md"}`}
+          className={`${prefix ? "rounded-l-none" : ""} ${suffix ? "rounded-r-none" : ""}`}
         />
         {suffix && (
-          <span className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+          <span className="inline-flex items-center rounded-r-lg border border-l-0 border-input bg-muted px-3 h-8 text-sm text-muted-foreground">
             {suffix}
           </span>
         )}
       </div>
-      {hint && <p className="text-xs text-gray-500">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
