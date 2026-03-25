@@ -1,4 +1,9 @@
+export type OwnerMode = "landlord" | "owner-occupant";
+
 export interface CalculatorInputs {
+  // Mode
+  mode: OwnerMode;
+
   // Purchase & Financing
   purchasePrice: number;
   downPaymentPercent: number;
@@ -17,18 +22,33 @@ export interface CalculatorInputs {
   environmentalAssessment: number;
   closingCostsOverride: number | null;
 
-  // Annual Operating Costs
+  // Annual Operating Costs (passed to tenant in NNN)
   propertyTax: number;
   propertyTaxInflation: number;
   insurance: number;
   insuranceInflation: number;
   maintenance: number;
   maintenanceInflation: number;
+  snowRemoval: number;
+  garbageCollection: number;
+  operatingCostsInflation: number; // shared inflation for snow/garbage
 
   // Optional Income
   annualRentalIncome: number;
   rentalIncomeTaxRate: number;
   rentAnnualIncrease: number;
+  isNNNLease: boolean; // NNN = tenant reimburses operating costs (wash for tax)
+
+  // Business Expenses (tax-deductible, NOT passed to tenant)
+  accounting: number;
+  legal: number;
+  otherBusinessExpenses: number;
+  businessExpensesInflation: number;
+
+  // Capital Cost Allowance (CCA)
+  ccaEnabled: boolean;
+  ccaRate: number; // Class 1 = 4%, Class 6 = 10%
+  ccaBuildingPortion: number; // % of purchase price that is building (vs land)
 
   // Current Costs Avoided (money you stop paying by owning)
   currentRent: number;
@@ -53,6 +73,10 @@ export interface YearRow {
   maintenance: number;
   totalCosts: number;
   rentalIncomeGross: number;
+  nnnReimbursement: number;
+  businessExpenses: number;
+  ccaDeduction: number;
+  taxableIncome: number;
   rentalIncomeTax: number;
   rentalIncomeNet: number;
   costsAvoided: number;
@@ -75,6 +99,15 @@ export interface ComparisonRow {
   advantage: number; // own net worth - rent net position (positive = owning wins)
 }
 
+export interface LandlordInvestmentRow {
+  year: number;
+  annualNetCashFlow: number;     // rentalIncomeNet - totalCosts (positive = profitable)
+  investorContribution: number;  // money investor puts in (or withdraws) to match cash flows
+  investmentBalance: number;     // portfolio value at 7%
+  landlordWealth: number;        // property equity + cumulative net cash flows
+  advantage: number;             // landlordWealth - investmentBalance (positive = owning wins)
+}
+
 export interface CalculationResult {
   schedule: YearRow[];
   monthlyPayment: number;
@@ -82,6 +115,7 @@ export interface CalculationResult {
   downPaymentAmount: number;
   mortgageAmount: number;
   comparison: ComparisonRow[];
+  landlordComparison: LandlordInvestmentRow[];
   summary: {
     totalCostOverPeriod: number;
     totalEquityBuilt: number;

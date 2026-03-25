@@ -1,4 +1,4 @@
-import { CalculatorInputs, YearRow, ComparisonRow, CalculationResult } from "./types";
+import { CalculatorInputs, YearRow, ComparisonRow, LandlordInvestmentRow, CalculationResult } from "./types";
 
 /**
  * BC Property Transfer Tax schedule (commercial property).
@@ -76,6 +76,12 @@ export function generateSchedule(inputs: CalculatorInputs): CalculationResult {
   let cumulativeCashFlow = -(downPayment + totalClosingCosts); // upfront costs
   let totalPrincipalPaid = 0;
 
+  // CCA (Capital Cost Allowance) - declining balance
+  const ccaRate = inputs.ccaRate / 100;
+  let ccaUndepreciatedBalance = inputs.ccaEnabled
+    ? inputs.purchasePrice * (inputs.ccaBuildingPortion / 100)
+    : 0;
+
   const schedule: YearRow[] = [];
 
   for (let year = 1; year <= inputs.projectionYears; year++) {
@@ -106,25 +112,59 @@ export function generateSchedule(inputs: CalculatorInputs): CalculationResult {
     const propertyTax = inflatedValue(inputs.propertyTax, inputs.propertyTaxInflation, year);
     const insurance = inflatedValue(inputs.insurance, inputs.insuranceInflation, year);
     const maintenance = inflatedValue(inputs.maintenance, inputs.maintenanceInflation, year);
+    const snowRemoval = inflatedValue(inputs.snowRemoval, inputs.operatingCostsInflation, year);
+    const garbageCollection = inflatedValue(inputs.garbageCollection, inputs.operatingCostsInflation, year);
 
-    const totalCosts = yearMortgagePayment + propertyTax + insurance + maintenance;
+    const totalCosts = yearMortgagePayment + propertyTax + insurance + maintenance + snowRemoval + garbageCollection;
 
-    // Rental income
+    // Rental income with proper NNN + deduction handling
     const rentalIncomeGross =
       inputs.annualRentalIncome > 0
         ? inputs.annualRentalIncome * Math.pow(1 + inputs.rentAnnualIncrease / 100, year - 1)
         : 0;
-    const rentalIncomeTax = rentalIncomeGross * (inputs.rentalIncomeTaxRate / 100);
-    const rentalIncomeNet = rentalIncomeGross - rentalIncomeTax;
 
-    // Costs avoided (money you stop paying by owning — not taxed)
-    const baseCostsAvoided = inputs.currentRent + inputs.currentInsurance + inputs.currentOther;
+    // NNN pass-throughs: tenant reimburses operating costs (wash — collected and spent)
+    // Only applies if there's actually a tenant paying rent
+    const nnnReimbursement = inputs.isNNNLease && rentalIncomeGross > 0
+      ? propertyTax + insurance + maintenance + snowRemoval + garbageCollection
+      : 0;
+
+    // Business expenses (tax-deductible, NOT passed to tenant)
+    const baseBusinessExpenses =
+      inputs.accounting + inputs.legal + inputs.otherBusinessExpenses;
+    const businessExpenses = baseBusinessExpenses > 0 && rentalIncomeGross > 0
+      ? inflatedValue(baseBusinessExpenses, inputs.businessExpensesInflation, year)
+      : 0;
+
+    // CCA deduction (half-year rule in year 1, declining balance)
+    let ccaDeduction = 0;
+    if (inputs.ccaEnabled && rentalIncomeGross > 0 && ccaUndepreciatedBalance > 0) {
+      const effectiveRate = year === 1 ? ccaRate / 2 : ccaRate; // half-year rule
+      ccaDeduction = ccaUndepreciatedBalance * effectiveRate;
+      ccaUndepreciatedBalance -= ccaDeduction;
+    }
+
+    // Taxable income = base rent - mortgage interest - business expenses - CCA
+    // NNN reimbursements wash out (collected and spent, not taxable)
+    const taxableIncome = Math.max(0,
+      rentalIncomeGross - yearInterest - businessExpenses - ccaDeduction
+    );
+    const rentalIncomeTax = taxableIncome * (inputs.rentalIncomeTaxRate / 100);
+
+    // Net income = what actually lands in your pocket from rent after tax and biz expenses.
+    // NNN reimbursements are a wash (collected then immediately spent) — excluded here.
+    const rentalIncomeNet = rentalIncomeGross - rentalIncomeTax - businessExpenses;
+
+    // Costs avoided (money you stop paying by owning — not taxed, owner-occupant only)
+    const baseCostsAvoided = inputs.mode === "owner-occupant"
+      ? inputs.currentRent + inputs.currentInsurance + inputs.currentOther
+      : 0;
     const costsAvoided = baseCostsAvoided > 0
       ? inflatedValue(baseCostsAvoided, inputs.costsAvoidedInflation, year)
       : 0;
 
-    // Cash flow
-    const netCashFlow = rentalIncomeNet + costsAvoided - totalCosts;
+    // Cash flow: net income + NNN wash (collected = spent, nets to zero) + costs avoided - all costs
+    const netCashFlow = rentalIncomeNet + nnnReimbursement + costsAvoided - totalCosts;
     cumulativeCashFlow += netCashFlow;
 
     // Equity & value
@@ -143,6 +183,10 @@ export function generateSchedule(inputs: CalculatorInputs): CalculationResult {
       maintenance: Math.round(maintenance * 100) / 100,
       totalCosts: Math.round(totalCosts * 100) / 100,
       rentalIncomeGross: Math.round(rentalIncomeGross * 100) / 100,
+      nnnReimbursement: Math.round(nnnReimbursement * 100) / 100,
+      businessExpenses: Math.round(businessExpenses * 100) / 100,
+      ccaDeduction: Math.round(ccaDeduction * 100) / 100,
+      taxableIncome: Math.round(taxableIncome * 100) / 100,
       rentalIncomeTax: Math.round(rentalIncomeTax * 100) / 100,
       rentalIncomeNet: Math.round(rentalIncomeNet * 100) / 100,
       costsAvoided: Math.round(costsAvoided * 100) / 100,
@@ -198,33 +242,78 @@ export function generateSchedule(inputs: CalculatorInputs): CalculationResult {
     });
   }
 
+  // Landlord vs. "just invest the money" comparison
+  // Both parties start with the same cash (down + closing).
+  // Investor contributes/withdraws the same net cash the landlord experiences each year.
+  const landlordComparison: LandlordInvestmentRow[] = [];
+  let landlordInvestmentBalance = downPayment + totalClosingCosts; // initial lump sum at 7%
+
+  for (const row of schedule) {
+    // Net cash flow for landlord this year (positive = money received, negative = money paid out)
+    // Use row.netCashFlow which correctly includes NNN reimbursement wash
+    const annualNetCashFlow = row.netCashFlow;
+
+    // Investor mirrors: invests what landlord pays out, withdraws what landlord earns
+    const investorContribution = -annualNetCashFlow;
+    landlordInvestmentBalance =
+      landlordInvestmentBalance * (1 + returnRate) + investorContribution;
+
+    // Landlord total wealth = property equity + cumulative operating cash flows
+    // (cumulativeCashFlow starts at -(down+closing), so add those back to get pure operating flows)
+    const landlordWealth =
+      row.netWorthPosition + (row.cumulativeCashFlow + downPayment + totalClosingCosts);
+
+    const advantage = landlordWealth - landlordInvestmentBalance;
+
+    landlordComparison.push({
+      year: row.year,
+      annualNetCashFlow: Math.round(annualNetCashFlow * 100) / 100,
+      investorContribution: Math.round(investorContribution * 100) / 100,
+      investmentBalance: Math.round(landlordInvestmentBalance * 100) / 100,
+      landlordWealth: Math.round(landlordWealth * 100) / 100,
+      advantage: Math.round(advantage * 100) / 100,
+    });
+  }
+
   const lastYear = schedule[schedule.length - 1];
-  const totalCostOverPeriod =
+
+  // Raw cost of ownership — does NOT net out costs avoided or rental income.
+  // This answers "what does it actually cost to own this building?"
+  const totalRawCostOverPeriod =
     downPayment +
     totalClosingCosts +
     schedule.reduce((sum, row) => sum + row.totalCosts, 0);
-  const totalIncomeOverPeriod = schedule.reduce(
-    (sum, row) => sum + row.rentalIncomeNet + row.costsAvoided,
-    0
-  );
+
+  // Net cost for landlord mode: subtract rental income (the revenue offsets cost)
+  const totalRentalIncomeNet = schedule.reduce((sum, row) => sum + row.rentalIncomeNet, 0);
+  const totalNetCostOverPeriod = totalRawCostOverPeriod - totalRentalIncomeNet;
+
+  // Effective monthly cost = raw all-in cost / months (no savings deducted)
+  const rawEffectiveMonthlyCost =
+    inputs.projectionYears > 0
+      ? totalRawCostOverPeriod / (inputs.projectionYears * 12)
+      : 0;
 
   return {
     schedule,
     comparison,
+    landlordComparison,
     monthlyPayment: Math.round(monthlyPayment * 100) / 100,
     totalClosingCosts: Math.round(totalClosingCosts * 100) / 100,
     downPaymentAmount: Math.round(downPayment * 100) / 100,
     mortgageAmount: Math.round(mortgageAmount * 100) / 100,
     summary: {
-      totalCostOverPeriod: Math.round((totalCostOverPeriod - totalIncomeOverPeriod) * 100) / 100,
+      // Owner-occupant: raw cost (no savings deducted — comparison table handles that)
+      // Landlord: net of rental income
+      totalCostOverPeriod: Math.round(
+        (inputs.mode === "landlord" ? totalNetCostOverPeriod : totalRawCostOverPeriod) * 100
+      ) / 100,
       totalEquityBuilt: lastYear ? Math.round(lastYear.equityBuilt * 100) / 100 : 0,
       estimatedPropertyValue: lastYear
         ? Math.round(lastYear.estimatedPropertyValue * 100) / 100
         : inputs.purchasePrice,
       netWorthPosition: lastYear ? Math.round(lastYear.netWorthPosition * 100) / 100 : 0,
-      effectiveMonthlyCost: lastYear
-        ? Math.round((-lastYear.cumulativeCashFlow / (inputs.projectionYears * 12)) * 100) / 100
-        : 0,
+      effectiveMonthlyCost: Math.round(rawEffectiveMonthlyCost * 100) / 100,
     },
   };
 }

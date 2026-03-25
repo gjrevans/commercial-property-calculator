@@ -1,8 +1,10 @@
 "use client";
 
-import { CalculatorInputs } from "@/lib/types";
-import { calculateBCLandTransferTax } from "@/lib/calculations";
+import { CalculatorInputs, OwnerMode } from "@/lib/types";
+import { LANDLORD_DEFAULTS, OWNER_OCCUPANT_DEFAULTS } from "@/lib/defaults";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import InputGroup from "./InputGroup";
 import NumberInput from "./NumberInput";
 
@@ -14,6 +16,15 @@ interface InputPanelProps {
 export default function InputPanel({ inputs, onChange }: InputPanelProps) {
   const update = (partial: Partial<CalculatorInputs>) => {
     const updated = { ...inputs, ...partial };
+    // When switching modes, load the full defaults for that mode
+    if (partial.mode === "landlord") {
+      onChange(LANDLORD_DEFAULTS);
+      return;
+    } else if (partial.mode === "owner-occupant") {
+      onChange(OWNER_OCCUPANT_DEFAULTS);
+      return;
+    }
+
     // Sync down payment dollar/percent
     if ("downPaymentPercent" in partial) {
       updated.downPaymentDollar = Math.round(
@@ -32,10 +43,32 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
     onChange(updated);
   };
 
-  const autoLTT = calculateBCLandTransferTax(inputs.purchasePrice);
+  const isLandlord = inputs.mode === "landlord";
 
   return (
     <div className="space-y-4">
+      {/* Mode Toggle */}
+      <div className="flex rounded-lg border overflow-hidden">
+        {(["owner-occupant", "landlord"] as OwnerMode[]).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => update({ mode })}
+            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+              inputs.mode === mode
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {mode === "owner-occupant" ? "I\u2019m Using It Myself" : "I\u2019m a Landlord"}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        {isLandlord
+          ? "Focus: rental ROI, net income after tax, long-term return"
+          : "Focus: total cost of occupancy vs continuing to rent"}
+      </p>
+
       <InputGroup title="Purchase & Financing">
         <NumberInput
           label="Purchase Price"
@@ -112,251 +145,285 @@ export default function InputPanel({ inputs, onChange }: InputPanelProps) {
           max={40}
           hint="Number of years to show in the schedule"
         />
+        <NumberInput
+          label="Closing Costs"
+          value={inputs.closingCostsOverride ?? 0}
+          onChange={(v) => update({ closingCostsOverride: v })}
+          prefix="$"
+          step={1000}
+          min={0}
+          hint="Legal, inspection, appraisal, land transfer tax, etc."
+        />
       </InputGroup>
 
-      <InputGroup title="Closing Costs" collapsible defaultOpen={false}>
-        {inputs.closingCostsOverride === null ? (
-          <>
-            <NumberInput
-              label="Legal Fees"
-              value={inputs.legalFees}
-              onChange={(v) => update({ legalFees: v })}
-              prefix="$"
-              step={500}
-              min={0}
+      <InputGroup title="Annual Operating Costs">
+        {isLandlord && (
+          <div className="flex items-center gap-3 mb-1">
+            <Switch
+              id="nnn-toggle"
+              checked={inputs.isNNNLease}
+              onCheckedChange={(checked) => update({ isNNNLease: checked })}
             />
-            <NumberInput
-              label="Property Inspection"
-              value={inputs.propertyInspection}
-              onChange={(v) => update({ propertyInspection: v })}
-              prefix="$"
-              step={100}
-              min={0}
-            />
-            <NumberInput
-              label="Appraisal"
-              value={inputs.appraisal}
-              onChange={(v) => update({ appraisal: v })}
-              prefix="$"
-              step={100}
-              min={0}
-            />
-            <div>
-              <NumberInput
-                label="Land Transfer Tax"
-                value={inputs.landTransferTaxOverride ? inputs.landTransferTax : autoLTT}
-                onChange={(v) =>
-                  update({ landTransferTax: v, landTransferTaxOverride: true })
-                }
-                prefix="$"
-                step={100}
-                min={0}
-                hint={
-                  inputs.landTransferTaxOverride
-                    ? "Manual override active"
-                    : `Auto-calculated (BC schedule)`
-                }
-              />
-              {inputs.landTransferTaxOverride && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 mt-1 text-xs"
-                  onClick={() => update({ landTransferTaxOverride: false })}
-                >
-                  Reset to auto-calculate (${autoLTT.toLocaleString()})
-                </Button>
-              )}
-            </div>
-            <NumberInput
-              label="Environmental Assessment"
-              value={inputs.environmentalAssessment}
-              onChange={(v) => update({ environmentalAssessment: v })}
-              prefix="$"
-              step={500}
-              min={0}
-            />
-            <div className="pt-2 border-t">
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs text-muted-foreground"
-                onClick={() =>
-                  update({
-                    closingCostsOverride:
-                      inputs.legalFees +
-                      inputs.propertyInspection +
-                      inputs.appraisal +
-                      (inputs.landTransferTaxOverride
-                        ? inputs.landTransferTax
-                        : autoLTT) +
-                      inputs.environmentalAssessment,
-                  })
-                }
-              >
-                Or enter a total override instead →
-              </Button>
-            </div>
-          </>
+            <Label htmlFor="nnn-toggle" className="text-sm font-medium">
+              NNN Lease
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              — tenant pays all operating costs
+            </span>
+          </div>
+        )}
+        {isLandlord && inputs.isNNNLease ? (
+          <p className="text-xs text-muted-foreground py-2">
+            All operating costs passed to tenant. These still exist as expenses but are reimbursed (wash for tax purposes).
+          </p>
         ) : (
           <>
+            <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+              <NumberInput
+                label="Property Tax"
+                value={inputs.propertyTax}
+                onChange={(v) => update({ propertyTax: v })}
+                prefix="$"
+                step={1000}
+                min={0}
+              />
+              <NumberInput
+                label="Inflation"
+                value={inputs.propertyTaxInflation}
+                onChange={(v) => update({ propertyTaxInflation: v })}
+                suffix="%"
+                step={0.5}
+                min={0}
+              />
+            </div>
+            <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+              <NumberInput
+                label="Insurance"
+                value={inputs.insurance}
+                onChange={(v) => update({ insurance: v })}
+                prefix="$"
+                step={500}
+                min={0}
+              />
+              <NumberInput
+                label="Inflation"
+                value={inputs.insuranceInflation}
+                onChange={(v) => update({ insuranceInflation: v })}
+                suffix="%"
+                step={0.5}
+                min={0}
+              />
+            </div>
+            <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+              <NumberInput
+                label="Maintenance / Repairs"
+                value={inputs.maintenance}
+                onChange={(v) => update({ maintenance: v })}
+                prefix="$"
+                step={500}
+                min={0}
+              />
+              <NumberInput
+                label="Inflation"
+                value={inputs.maintenanceInflation}
+                onChange={(v) => update({ maintenanceInflation: v })}
+                suffix="%"
+                step={0.5}
+                min={0}
+              />
+            </div>
+            <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+              <NumberInput
+                label="Snow Removal"
+                value={inputs.snowRemoval}
+                onChange={(v) => update({ snowRemoval: v })}
+                prefix="$"
+                step={500}
+                min={0}
+              />
+              <NumberInput
+                label="Inflation"
+                value={inputs.operatingCostsInflation}
+                onChange={(v) => update({ operatingCostsInflation: v })}
+                suffix="%"
+                step={0.5}
+                min={0}
+              />
+            </div>
             <NumberInput
-              label="Total Closing Costs (Override)"
-              value={inputs.closingCostsOverride}
-              onChange={(v) => update({ closingCostsOverride: v })}
+              label="Garbage Collection"
+              value={inputs.garbageCollection}
+              onChange={(v) => update({ garbageCollection: v })}
               prefix="$"
-              step={500}
+              step={200}
               min={0}
             />
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-xs"
-              onClick={() => update({ closingCostsOverride: null })}
-            >
-              ← Back to itemized costs
-            </Button>
           </>
         )}
       </InputGroup>
 
-      <InputGroup title="Annual Operating Costs">
-        <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
+      {/* LANDLORD MODE: Rental income, NNN, business expenses */}
+      {isLandlord && (
+        <>
+          <InputGroup title="Rental Income">
+            <NumberInput
+              label="Annual Rental Income"
+              value={inputs.annualRentalIncome}
+              onChange={(v) => update({ annualRentalIncome: v })}
+              prefix="$"
+              step={1000}
+              min={0}
+              hint="Base rent collected from tenant"
+            />
+            <NumberInput
+              label="Tax Rate on Net Profit"
+              value={inputs.rentalIncomeTaxRate}
+              onChange={(v) => update({ rentalIncomeTaxRate: v })}
+              suffix="%"
+              step={1}
+              min={0}
+              max={100}
+              hint="Applied after deducting interest + biz expenses (NOT principal)"
+            />
+            <NumberInput
+              label="Annual Rent Increase"
+              value={inputs.rentAnnualIncrease}
+              onChange={(v) => update({ rentAnnualIncrease: v })}
+              suffix="%"
+              step={0.5}
+              min={0}
+            />
+          </InputGroup>
+
+          <InputGroup title="Capital Cost Allowance (CCA)">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="cca-toggle"
+                checked={inputs.ccaEnabled}
+                onCheckedChange={(checked) => update({ ccaEnabled: checked })}
+              />
+              <Label htmlFor="cca-toggle" className="text-sm font-medium">
+                Claim CCA deduction
+              </Label>
+            </div>
+            {inputs.ccaEnabled && (
+              <>
+                <NumberInput
+                  label="CCA Rate"
+                  value={inputs.ccaRate}
+                  onChange={(v) => update({ ccaRate: v })}
+                  suffix="%"
+                  step={1}
+                  min={0}
+                  hint="Class 1 (most commercial buildings) = 4%"
+                />
+                <NumberInput
+                  label="Building Portion"
+                  value={inputs.ccaBuildingPortion}
+                  onChange={(v) => update({ ccaBuildingPortion: v })}
+                  suffix="%"
+                  step={5}
+                  min={0}
+                  max={100}
+                  hint="% of purchase price that is building vs land (typically 75–85%)"
+                />
+              </>
+            )}
+          </InputGroup>
+
+          <InputGroup title="Business Expenses (Tax-Deductible)" collapsible defaultOpen={false}>
+            <p className="text-xs text-gray-500 -mt-1 mb-1">
+              Your expenses as landlord — reduces taxable income. Not passed to tenant.
+            </p>
+            <NumberInput
+              label="Accounting"
+              value={inputs.accounting}
+              onChange={(v) => update({ accounting: v })}
+              prefix="$"
+              step={500}
+              min={0}
+            />
+            <NumberInput
+              label="Legal"
+              value={inputs.legal}
+              onChange={(v) => update({ legal: v })}
+              prefix="$"
+              step={500}
+              min={0}
+            />
+            <NumberInput
+              label="Other Expenses"
+              value={inputs.otherBusinessExpenses}
+              onChange={(v) => update({ otherBusinessExpenses: v })}
+              prefix="$"
+              step={500}
+              min={0}
+            />
+            <NumberInput
+              label="Annual Increase"
+              value={inputs.businessExpensesInflation}
+              onChange={(v) => update({ businessExpensesInflation: v })}
+              suffix="%"
+              step={0.5}
+              min={0}
+            />
+          </InputGroup>
+        </>
+      )}
+
+      {/* OWNER-OCCUPANT MODE: Costs avoided, rent comparison */}
+      {!isLandlord && (
+        <InputGroup title="Current Costs Avoided">
+          <p className="text-xs text-gray-500 -mt-1 mb-1">
+            What you currently pay that you&apos;d stop paying by owning. This is money saved — no tax on it.
+          </p>
           <NumberInput
-            label="Property Tax"
-            value={inputs.propertyTax}
-            onChange={(v) => update({ propertyTax: v })}
+            label="Rent You Currently Pay"
+            value={inputs.currentRent}
+            onChange={(v) => update({ currentRent: v })}
             prefix="$"
             step={1000}
             min={0}
+            hint="Annual amount"
           />
           <NumberInput
-            label="Inflation"
-            value={inputs.propertyTaxInflation}
-            onChange={(v) => update({ propertyTaxInflation: v })}
-            suffix="%"
-            step={0.5}
-            min={0}
-          />
-        </div>
-        <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
-          <NumberInput
-            label="Insurance"
-            value={inputs.insurance}
-            onChange={(v) => update({ insurance: v })}
+            label="Insurance You Currently Pay"
+            value={inputs.currentInsurance}
+            onChange={(v) => update({ currentInsurance: v })}
             prefix="$"
             step={500}
             min={0}
+            hint="Annual amount (tenant insurance, etc.)"
           />
           <NumberInput
-            label="Inflation"
-            value={inputs.insuranceInflation}
-            onChange={(v) => update({ insuranceInflation: v })}
-            suffix="%"
-            step={0.5}
-            min={0}
-          />
-        </div>
-        <div className="grid grid-cols-[1fr,auto] gap-2 items-end">
-          <NumberInput
-            label="Maintenance / Repairs"
-            value={inputs.maintenance}
-            onChange={(v) => update({ maintenance: v })}
+            label="Other Costs Avoided"
+            value={inputs.currentOther}
+            onChange={(v) => update({ currentOther: v })}
             prefix="$"
             step={500}
             min={0}
+            hint="Annual amount (CAM fees, parking, etc.)"
           />
           <NumberInput
-            label="Inflation"
-            value={inputs.maintenanceInflation}
-            onChange={(v) => update({ maintenanceInflation: v })}
+            label="Annual Increase"
+            value={inputs.costsAvoidedInflation}
+            onChange={(v) => update({ costsAvoidedInflation: v })}
             suffix="%"
             step={0.5}
             min={0}
+            hint="How much these costs would have gone up each year"
           />
-        </div>
-      </InputGroup>
-
-      <InputGroup title="Rental Income (Optional)">
-        <NumberInput
-          label="Annual Rental Income"
-          value={inputs.annualRentalIncome}
-          onChange={(v) => update({ annualRentalIncome: v })}
-          prefix="$"
-          step={1000}
-          min={0}
-          hint="Leave at $0 if occupying the building yourself"
-        />
-        <NumberInput
-          label="Tax Rate on Rental Income"
-          value={inputs.rentalIncomeTaxRate}
-          onChange={(v) => update({ rentalIncomeTaxRate: v })}
-          suffix="%"
-          step={1}
-          min={0}
-          max={100}
-          hint="Canadian corporate tax rate ~51%"
-        />
-        <NumberInput
-          label="Annual Rent Increase"
-          value={inputs.rentAnnualIncrease}
-          onChange={(v) => update({ rentAnnualIncrease: v })}
-          suffix="%"
-          step={0.5}
-          min={0}
-        />
-      </InputGroup>
-
-      <InputGroup title="Current Costs Avoided">
-        <p className="text-xs text-gray-500 -mt-1 mb-1">
-          What you currently pay that you&apos;d stop paying by owning. This is tax-free savings — not the same as rental income.
-        </p>
-        <NumberInput
-          label="Rent You Currently Pay"
-          value={inputs.currentRent}
-          onChange={(v) => update({ currentRent: v })}
-          prefix="$"
-          step={1000}
-          min={0}
-          hint="Annual amount"
-        />
-        <NumberInput
-          label="Insurance You Currently Pay"
-          value={inputs.currentInsurance}
-          onChange={(v) => update({ currentInsurance: v })}
-          prefix="$"
-          step={500}
-          min={0}
-          hint="Annual amount (tenant insurance, etc.)"
-        />
-        <NumberInput
-          label="Other Costs Avoided"
-          value={inputs.currentOther}
-          onChange={(v) => update({ currentOther: v })}
-          prefix="$"
-          step={500}
-          min={0}
-          hint="Annual amount (CAM fees, parking, etc.)"
-        />
-        <NumberInput
-          label="Annual Increase"
-          value={inputs.costsAvoidedInflation}
-          onChange={(v) => update({ costsAvoidedInflation: v })}
-          suffix="%"
-          step={0.5}
-          min={0}
-          hint="How much these costs would have gone up each year"
-        />
-        <NumberInput
-          label="Investment Return Rate"
-          value={inputs.investmentReturnRate}
-          onChange={(v) => update({ investmentReturnRate: v })}
-          suffix="%"
-          step={0.5}
-          min={0}
-          hint="If renting is cheaper, what return on invested savings?"
-        />
-      </InputGroup>
+          <NumberInput
+            label="Investment Return Rate"
+            value={inputs.investmentReturnRate}
+            onChange={(v) => update({ investmentReturnRate: v })}
+            suffix="%"
+            step={0.5}
+            min={0}
+            hint="If renting is cheaper, what return on invested savings?"
+          />
+        </InputGroup>
+      )}
 
       <InputGroup title="Property Value">
         <NumberInput

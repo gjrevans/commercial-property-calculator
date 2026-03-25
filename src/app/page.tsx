@@ -32,6 +32,9 @@ export default function Home() {
           <ResultsPanel
             result={result}
             projectionYears={inputs.projectionYears}
+            mode={inputs.mode}
+            isNNNLease={inputs.isNNNLease}
+            investmentReturnRate={inputs.investmentReturnRate}
           />
         </div>
       </div>
